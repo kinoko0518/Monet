@@ -88,68 +88,57 @@ impl GraphPaper {
             size: self.size,
             elements: Vec::new()
         };
-        let get_v_great_splitten = |i:u32| -> String {
-            let y_from = self.margin;
-            let unit = (self.size.y - 2_f32 * self.margin) / (self.v_great_split as f32);
-            let from = Vec2 {
-                x: self.margin,
-                y: self.size.y - y_from - unit * (i as f32)
-            };
-            let to = from + Vec2 { x: self.great_split_length, y: 0_f32 };
-            format!(
-                "{}\n\t{}",
-                self.get_line(from, to),
-                Self::get_text(
-                    from, (self.v_unit * i as f32).to_string(),
-                    Some(vec![
-                        "text-anchor=\"end\"",
-                        "font-size=\"20pt\""
-                    ])
-                )
-            )
-        };
-        let get_v_short_splitten = |i:u32| -> String {
+        let get_v_splitten = |i:u32| -> String {
             let y_from = self.margin;
             let unit = (self.size.y - 2_f32 * self.margin) / ((self.v_great_split * self.v_short_split) as f32);
             let from = Vec2 {
                 x: self.margin,
                 y: self.size.y - y_from - unit * (i as f32)
             };
-            let to = from + Vec2 { x: self.short_split_length, y: 0_f32 };
-            self.get_line(from, to)
-        };
-        let get_h_great_splitten = |i:u32| -> String {
-            let x_from = self.margin;
-            let y_from = self.size.y - self.margin;
-            let unit = (self.size.x - 2_f32 * self.margin) / (self.h_great_split as f32);
-            let from = Vec2 {
-                x: x_from + unit * (i as f32),
-                y: y_from
-            };
-            let to = from + Vec2 { x: 0_f32, y: -self.great_split_length };
-            format!(
-                "{}\n\t{}",
-                self.get_line(from, to),
-                Self::get_text(
-                    from, (self.h_unit * i as f32).to_string(),
-                    Some(vec![
-                        "text-anchor=\"end\"",
-                        "dominant-baseline=\"hanging\"",
-                        "font-size=\"20pt\""
-                    ])
+            if i % self.v_great_split == 0 {
+                let to = from + Vec2 { x: self.great_split_length, y: 0_f32 };
+                format!(
+                    "{}\n\t{}",
+                    self.get_line(from, to),
+                    Self::get_text(
+                        from, (self.v_unit * (i as f32 / self.v_great_split as f32)).to_string(),
+                        Some(vec![
+                            "text-anchor=\"end\"",
+                            "font-size=\"20pt\""
+                        ])
+                    )
                 )
-            )
+            } else {
+                let to = from + Vec2 { x: self.short_split_length, y: 0_f32 };
+                self.get_line(from, to)
+            }
         };
-        let get_h_short_splitten = |i:u32| -> String {
+        let get_h_splitten = |i:u32| -> String {
             let x_from = self.margin;
             let y_from = self.size.y - self.margin;
             let unit = (self.size.x - 2_f32 * self.margin) / ((self.h_great_split * self.h_short_split) as f32);
             let from = Vec2 {
-                x: x_from + unit * (i as f32),
+                x: x_from + unit * i as f32,
                 y: y_from
             };
-            let to = from + Vec2 { x: 0_f32, y: -self.short_split_length };
-            self.get_line(from, to)
+            if i % self.h_great_split == 0 {
+                let to = from + Vec2 { x: 0_f32, y: -self.great_split_length };
+                format!(
+                    "{}\n\t{}",
+                    self.get_line(from, to),
+                    Self::get_text(
+                        from, (self.h_unit * (i as f32 / self.h_great_split as f32)).to_string(),
+                        Some(vec![
+                            "text-anchor=\"end\"",
+                            "dominant-baseline=\"hanging\"",
+                            "font-size=\"20pt\""
+                        ])
+                    )
+                )
+            } else {
+                let to = from + Vec2 { x: 0_f32, y: -self.short_split_length };
+                self.get_line(from, to)
+            }
         };
         let to_graph_coords = |p:Vec2| {
             let value_max = Vec2::vec2(
@@ -171,28 +160,16 @@ impl GraphPaper {
                     "font-size=\"20pt\""
                 ]))
             )
-            // 縦長基準線を追加
+            // 縦基準線を追加
             .add_elements(
-                (1..(self.v_great_split + 1))
-                    .map(|i| get_v_great_splitten(i))
+                (1..(self.v_great_split * self.v_short_split + 1))
+                    .map(|i| get_v_splitten(i))
                     .collect::<Vec<String>>()
             )
-            // 縦短基準線を追加
+             // 横基準線を追加
             .add_elements(
-                (1..self.v_great_split * self.v_short_split)
-                    .map(|i| get_v_short_splitten(i))
-                    .collect::<Vec<String>>()
-            )
-             // 横長基準線を追加
-            .add_elements(
-                (1..(self.h_great_split + 1))
-                    .map(|i| get_h_great_splitten(i))
-                    .collect::<Vec<String>>()
-            )
-            // 横短基準線を追加
-            .add_elements(
-                (1..self.h_great_split * self.h_short_split)
-                    .map(|i| get_h_short_splitten(i))
+                (1..(self.h_great_split * self.h_short_split + 1))
+                    .map(|i| get_h_splitten(i))
                     .collect::<Vec<String>>()
             )
             // プロット点を追加
