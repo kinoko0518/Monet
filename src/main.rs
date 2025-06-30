@@ -32,12 +32,12 @@ fn main() {
         great_split_length: 50.0,
         short_split_length: 25.5,
         
-        v_great_split: 10,
-        v_unit: 0.2,
+        v_great_split: 5,
+        v_unit: 0.5,
         v_short_split: 5,
 
-        h_great_split: 14,
-        h_unit: 2.5,
+        h_great_split: 7,
+        h_unit: 5.0,
         h_short_split: 5,
     }.serialise();
     export(serialised).unwrap();

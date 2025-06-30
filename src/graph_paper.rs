@@ -55,6 +55,31 @@ pub struct GraphPaper {
     pub v_short_split:u32,
 }
 impl GraphPaper {
+    fn get_margin(&self, size: Vec2, margin:f32) -> String {
+        format!(
+            "<rect width=\"{}\" height=\"{}\" fill=\"none\" opacity=\"1\" stroke=\"black\" x=\"{}\" y=\"{}\" stroke-width=\"{}\" />",
+            size.x - margin * 2_f32, size.y - margin * 2_f32,
+            margin, margin, self.stroke_width
+        )
+    }
+    fn get_line(&self, from:Vec2, to:Vec2) -> String {
+        format!(
+            "<line stroke=\"black\" x1=\"{}\" y1=\"{}\" x2=\"{}\" y2=\"{}\" stroke-width=\"{}\" />",
+            from.x, from.y, to.x, to.y, self.stroke_width
+        )
+    }
+    fn get_text(anchor:Vec2, text:String, extra_property:Option<Vec<&str>>) -> String {
+        format!(
+            "<text x=\"{}\" y=\"{}\" {}>{}</text>",
+            anchor.x, anchor.y,
+            if let Some(s) = extra_property {
+                s.join(" ")
+            } else {
+                "".to_string()
+            },
+            text
+        )
+    }
     pub fn serialise(&self) -> String {
         let min = Vec2::vec2(self.margin, self.margin);
         let max = Vec2::vec2(self.size.x - self.margin, self.size.y - self.margin);
@@ -62,31 +87,6 @@ impl GraphPaper {
         let mut handle = SVGHandle {
             size: self.size,
             elements: Vec::new()
-        };
-        let get_margin = |size: Vec2, margin:f32| {
-            format!(
-                "<rect width=\"{}\" height=\"{}\" fill=\"none\" opacity=\"1\" stroke=\"black\" x=\"{}\" y=\"{}\" stroke-width=\"{}\" />",
-                size.x - margin * 2_f32, size.y - margin * 2_f32,
-                margin, margin, self.stroke_width
-            )
-        };
-        let get_line = |from:Vec2, to:Vec2| -> String {
-            format!(
-                "<line stroke=\"black\" x1=\"{}\" y1=\"{}\" x2=\"{}\" y2=\"{}\" stroke-width=\"{}\" />",
-                from.x, from.y, to.x, to.y, self.stroke_width
-            )
-        };
-        let get_text = |anchor:Vec2, text:String, extra_property:Option<Vec<&str>>| -> String {
-            format!(
-                "<text x=\"{}\" y=\"{}\" {}>{}</text>",
-                anchor.x, anchor.y,
-                if let Some(s) = extra_property {
-                    s.join(" ")
-                } else {
-                    "".to_string()
-                },
-                text
-            )
         };
         let get_v_great_splitten = |i:u32| -> String {
             let y_from = self.margin;
@@ -98,8 +98,8 @@ impl GraphPaper {
             let to = from + Vec2 { x: self.great_split_length, y: 0_f32 };
             format!(
                 "{}\n\t{}",
-                get_line(from, to),
-                get_text(
+                self.get_line(from, to),
+                Self::get_text(
                     from, (self.v_unit * i as f32).to_string(),
                     Some(vec![
                         "text-anchor=\"end\"",
@@ -116,7 +116,7 @@ impl GraphPaper {
                 y: self.size.y - y_from - unit * (i as f32)
             };
             let to = from + Vec2 { x: self.short_split_length, y: 0_f32 };
-            get_line(from, to)
+            self.get_line(from, to)
         };
         let get_h_great_splitten = |i:u32| -> String {
             let x_from = self.margin;
@@ -129,8 +129,8 @@ impl GraphPaper {
             let to = from + Vec2 { x: 0_f32, y: -self.great_split_length };
             format!(
                 "{}\n\t{}",
-                get_line(from, to),
-                get_text(
+                self.get_line(from, to),
+                Self::get_text(
                     from, (self.h_unit * i as f32).to_string(),
                     Some(vec![
                         "text-anchor=\"end\"",
@@ -149,7 +149,7 @@ impl GraphPaper {
                 y: y_from
             };
             let to = from + Vec2 { x: 0_f32, y: -self.short_split_length };
-            get_line(from, to)
+            self.get_line(from, to)
         };
         let to_graph_coords = |p:Vec2| {
             let value_max = Vec2::vec2(
@@ -161,9 +161,9 @@ impl GraphPaper {
         };
         handle
             // 枠を追加
-            .add_element(get_margin(self.size, self.margin))
+            .add_element(self.get_margin(self.size, self.margin))
             // タイトルを追加
-            .add_element(get_text(
+            .add_element(Self::get_text(
                 self.size / Vec2::vec2(2.0, 1.0),
                 self.name.clone(),
                 Some(vec![
