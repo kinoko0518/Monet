@@ -11,12 +11,11 @@ pub struct XLogScale {
 }
 impl XScale for XLogScale {
     fn get_h_splitten(&self, graph_paper:&GraphPaper) -> Vec<String> {
-        let unit = self.get_unit(graph_paper);
         let base = self.get_base();
-
         let get_a_splitten = |i:i32| -> String {
+            let to_graph_x = self.to_scaled_x(&graph_paper);
             let from = Vec2 {
-                x: graph_paper.margin + unit * ((i - self.from) as f32),
+                x: to_graph_x(base.powi(i)),
                 y: graph_paper.size.y - graph_paper.margin
             };
             let to = from + Vec2 {
@@ -66,9 +65,6 @@ impl XLogScale {
     fn get_base(&self) -> f32 {
         (self.max_value()).powf(1 as f32 /self.to as f32)
     }
-    fn get_unit(&self, graph_paper:&GraphPaper) -> f32 {
-        (graph_paper.size.x - 2_f32 * graph_paper.margin) / (self.to - self.from) as f32
-    }
     fn get_subscale(&self, graph_paper:&GraphPaper) -> Vec<String> {
         let to_graph_x = self.to_scaled_x(&graph_paper);
         let base: f32 = self.get_base();
@@ -76,12 +72,11 @@ impl XLogScale {
         (self.from..self.to)
             .map(|i| -> Vec<String> {
                 let power_of_base = base.powi(i);
-                (2..self.tick)
+                (2..self.base as u32)
                     .map(|j| {
                         let value_x = j as f32 * power_of_base;
-                        let svg_coords = Vec2::vec2(to_graph_x(value_x), 0.0);
                         let from = Vec2 {
-                            x: svg_coords.x,
+                            x: to_graph_x(value_x),
                             y: graph_paper.size.y - graph_paper.margin,
                         };
                         let to = from + Vec2 {
