@@ -98,25 +98,30 @@ impl YScale for YLinearScale {
 }
 /// X軸の対数軸
 pub struct XLogScale {
-    // 横長目盛分割数
-    pub h_great_split:u32,
+    pub from: i32,
+    pub to  : i32
 }
 impl XScale for XLogScale {
     fn get_h_splitten(&self, graph_paper:&GraphPaper) -> Vec<String> {
-        let unit = (graph_paper.size.x - 2_f32 * graph_paper.margin) / self.h_great_split as f32;
-        let get_a_splitten = |i:u32| -> String {
+        let width = self.to - self.from;
+        let unit = (graph_paper.size.x - 2_f32 * graph_paper.margin) / width as f32;
+        let base = (graph_paper.max_value.x).powf(1 as f32 /self.to as f32);
+
+        let get_a_splitten = |i:i32| -> String {
             let from = Vec2 {
-                x: graph_paper.margin + unit * (i as f32),
+                x: graph_paper.margin + unit * ((i - self.from) as f32),
                 y: graph_paper.size.y - graph_paper.margin
             };
-            let to = from + Vec2 { x: 0_f32, y: -graph_paper.great_split_length };
+            let to = from + Vec2 {
+                x: 0_f32,
+                y: -graph_paper.great_split_length
+            };
             format!(
                 "{}\n\t{}",
                 graph_paper.get_line(from, to),
                 GraphPaper::get_text(
                     from,
-                    graph_paper.max_value.x
-                        .powf(1 as f32 / self.h_great_split as f32)
+                    base
                         .powi(i as i32)
                         .to_string(),
                     Some(vec![
@@ -126,7 +131,7 @@ impl XScale for XLogScale {
                 )
             )
         };
-        (0..(self.h_great_split + 1))
+        (self.from..self.to+1)
             .map(|i| get_a_splitten(i))
             .collect::<Vec<String>>()
     }
@@ -175,11 +180,11 @@ pub struct GraphPaper {
     pub short_split_length:f32,
 }
 impl GraphPaper {
-    fn get_margin(&self, size: Vec2, margin:f32) -> String {
+    fn get_margin(&self) -> String {
         format!(
             "<rect width=\"{}\" height=\"{}\" fill=\"none\" opacity=\"1\" stroke=\"black\" x=\"{}\" y=\"{}\" stroke-width=\"{}\" />",
-            size.x - margin * 2_f32, size.y - margin * 2_f32,
-            margin, margin, self.stroke_width
+            self.size.x - self.margin * 2_f32, self.size.y - self.margin * 2_f32,
+            self.margin, self.margin, self.stroke_width
         )
     }
     fn get_line(&self, from:Vec2, to:Vec2) -> String {
@@ -209,7 +214,7 @@ impl GraphPaper {
         };
         handle
             // 枠を追加
-            .add_element(self.get_margin(self.size, self.margin))
+            .add_element(self.get_margin())
             // タイトルを追加
             .add_element(Self::get_text(
                 self.size / Vec2::vec2(2.0, 1.0),
@@ -276,10 +281,14 @@ impl SemiLogGraph {
             self.graph_paper.size.x - self.graph_paper.margin,
             self.graph_paper.size.y - self.graph_paper.margin
         );
+        let base = (self.graph_paper.max_value.x).powf(1 as f32 / self.x_log.to as f32);
 
         let to_graph_coords = |p:Vec2| {
-            let pure_graph_coords = min + (max - min) * (p / self.graph_paper.max_value);
-            Vec2::vec2(pure_graph_coords.x, min.y + max.y - pure_graph_coords.y)
+            let pure_graph_coords = Vec2::vec2(
+                (p.x.log(base) - self.x_log.from as f32) / (self.x_log.to - self.x_log.from) as f32  * (max.x - min.x),
+                (max.y - min.y) * (p.y / self.graph_paper.max_value.y)
+            );
+            Vec2::vec2(min.x + pure_graph_coords.x, max.y - pure_graph_coords.y)
         };
         self.graph_paper
             .get_paper(to_graph_coords)

@@ -23,6 +23,9 @@ impl Vec2 {
             y: self.y * multiplation
         }
     }
+    pub fn log(self, base:f32) -> Vec2 {
+        Vec2::vec2(self.x.log(base), self.y.log(base))
+    }
 }
 impl Debug for Vec2 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

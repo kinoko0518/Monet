@@ -70,7 +70,8 @@ fn main() {
     let semilog_graph = graph_paper::SemiLogGraph {
         graph_paper: lograph_paper,
         x_log: XLogScale {
-            h_great_split: 2,
+            from: -1,
+            to  :  2
         },
         y_linear: YLinearScale {
             v_great_split: 5,
