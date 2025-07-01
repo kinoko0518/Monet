@@ -12,7 +12,6 @@ fn main() {
         name: "テスターを用いた電圧測定における内部抵抗の影響(DC2.5Vレンジ)".to_string(),
         margin: 100.0,
         size: graph_paper::A4,
-        max_value: Vec2::vec2(35.0, 2.5),
         points: vec![
             Vec2::vec2(0.47, 0.050),
             Vec2::vec2(1.0, 0.085),
@@ -37,17 +36,18 @@ fn main() {
         x_linear: XLinearScale {
             h_great_split: 7,
             h_short_split: 5,
+            max_value: 35.0
         },
         y_linear: YLinearScale {
             v_great_split: 5,
             v_short_split: 5,
+            max_value: 2.5
         }
     };
     let lograph_paper = GraphPaper {
         name: "テスターを用いた電圧測定における内部抵抗の影響(DC2.5Vレンジ)".to_string(),
         margin: 100.0,
         size: graph_paper::A4,
-        max_value: Vec2::vec2(100.0, 2.5),
         points: vec![
             Vec2::vec2(0.47, 0.050),
             Vec2::vec2(1.0, 0.085),
@@ -70,12 +70,15 @@ fn main() {
     let semilog_graph = graph_paper::SemiLogGraph {
         graph_paper: lograph_paper,
         x_log: XLogScale {
-            from: -1,
-            to  :  2
+            from:   -1,
+            to  :    2,
+            base: 10.0,
+            tick:   20
         },
         y_linear: YLinearScale {
-            v_great_split: 5,
-            v_short_split: 5
+            v_great_split:   5,
+            v_short_split:   5,
+            max_value    : 2.5
         }
     };
     export(linear_graph.serialise(), "linear_graph").unwrap();
