@@ -5,6 +5,133 @@ pub const A4:Vec2 = Vec2 {
     y: 2100.0
 };
 
+trait XScale {
+    fn get_h_splitten(&self, graph_paper:&GraphPaper) -> Vec<String>;
+}
+trait YScale {
+    fn get_v_splitten(&self, graph_paper:&GraphPaper) -> Vec<String>;
+}
+/// X軸のリニア軸
+pub struct XLinearScale {
+    // 横長目盛分割数 / 横長目盛の短目盛での分割数
+    pub h_great_split:u32,
+    pub h_short_split:u32,
+}
+impl XScale for XLinearScale {
+    fn get_h_splitten(&self, graph_paper:&GraphPaper) -> Vec<String> {
+        let x_from = graph_paper.margin;
+        let y_from = graph_paper.size.y - graph_paper.margin;
+        let unit = (graph_paper.size.x - 2_f32 * graph_paper.margin)
+            / ((self.h_great_split * self.h_short_split) as f32);
+        let get_a_splitten = |i:u32| -> String {
+            let from = Vec2 {
+                x: x_from + unit * i as f32,
+                y: y_from
+            };
+            if i % self.h_great_split == 0 {
+                let to = from + Vec2 { x: 0_f32, y: -graph_paper.great_split_length };
+                format!(
+                    "{}\n\t{}",
+                    graph_paper.get_line(from, to),
+                    GraphPaper::get_text(
+                        from, ((graph_paper.max_value.x / self.h_great_split as f32)
+                        * (i as f32 / self.h_great_split as f32)
+                        ).to_string(),
+                        Some(vec![
+                            "text-anchor=\"end\"",
+                            "dominant-baseline=\"hanging\"",
+                            "font-size=\"20pt\""
+                        ])
+                    )
+                )
+            } else {
+                let to = from + Vec2 { x: 0_f32, y: -graph_paper.short_split_length };
+                graph_paper.get_line(from, to)
+            }
+        };
+        (0..(self.h_great_split * self.h_short_split + 1))
+            .map(|i| get_a_splitten(i))
+            .collect::<Vec<String>>()
+    }
+}
+/// Y軸のリニア軸
+pub struct YLinearScale {
+    // 縦長目盛分割数 / 縦長目盛の短目盛での分割数
+    pub v_great_split:u32,
+    pub v_short_split:u32,
+}
+impl YScale for YLinearScale {
+    fn get_v_splitten(&self, graph_paper:&GraphPaper) -> Vec<String> {
+        let y_from = graph_paper.margin;
+        let unit = (graph_paper.size.y - 2_f32 * graph_paper.margin) / ((self.v_great_split * self.v_short_split) as f32);
+
+        let get_a_splitten = |i: u32| -> String {
+            let from = Vec2 {
+                x: graph_paper.margin,
+                y: graph_paper.size.y - y_from - unit * (i as f32)
+            };
+            if i % self.v_great_split == 0 {
+                let to = from + Vec2 { x: graph_paper.great_split_length, y: 0_f32 };
+                format!(
+                    "{}\n\t{}",
+                    graph_paper.get_line(from, to),
+                    GraphPaper::get_text(
+                        from, (
+                            (graph_paper.max_value.y / self.v_great_split as f32)
+                            * (i as f32 / self.v_great_split as f32)
+                        ).to_string(),
+                        Some(vec![
+                            "text-anchor=\"end\"",
+                            "font-size=\"20pt\""
+                        ])
+                    )
+                )
+            } else {
+                let to = from + Vec2 { x: graph_paper.short_split_length, y: 0_f32 };
+                graph_paper.get_line(from, to)
+            }
+        };
+        (0..(self.v_great_split * self.v_short_split + 1))
+            .map(|i| get_a_splitten(i))
+            .collect::<Vec<String>>()
+    }
+}
+/// X軸の対数軸
+pub struct XLogScale {
+    // 横長目盛分割数
+    pub h_great_split:u32,
+}
+impl XScale for XLogScale {
+    fn get_h_splitten(&self, graph_paper:&GraphPaper) -> Vec<String> {
+        let unit = (graph_paper.size.x - 2_f32 * graph_paper.margin) / self.h_great_split as f32;
+        let get_a_splitten = |i:u32| -> String {
+            let from = Vec2 {
+                x: graph_paper.margin + unit * (i as f32),
+                y: graph_paper.size.y - graph_paper.margin
+            };
+            let to = from + Vec2 { x: 0_f32, y: -graph_paper.great_split_length };
+            format!(
+                "{}\n\t{}",
+                graph_paper.get_line(from, to),
+                GraphPaper::get_text(
+                    from,
+                    graph_paper.max_value.x
+                        .powf(1 as f32 / self.h_great_split as f32)
+                        .powi(i as i32)
+                        .to_string(),
+                    Some(vec![
+                        "text-anchor=\"end\"",
+                        "font-size=\"20pt\""
+                    ])
+                )
+            )
+        };
+        (0..(self.h_great_split + 1))
+            .map(|i| get_a_splitten(i))
+            .collect::<Vec<String>>()
+    }
+}
+
 #[derive(Clone)]
 struct SVGHandle {
     size: Vec2,
@@ -28,6 +155,8 @@ impl SVGHandle {
     }
 }
 
+/// グラフ用紙の基底クラス
+#[derive(Clone)]
 pub struct GraphPaper {
     // グラフの名前
     pub name: String,
@@ -41,6 +170,9 @@ pub struct GraphPaper {
     pub points: Vec<Vec2>,
     // 線の太さ
     pub stroke_width: f32,
+    // 長目盛の長さ / 短目盛の長さ
+    pub great_split_length:f32,
+    pub short_split_length:f32,
 }
 impl GraphPaper {
     fn get_margin(&self, size: Vec2, margin:f32) -> String {
@@ -68,17 +200,12 @@ impl GraphPaper {
             text
         )
     }
-    fn get_paper(&self) -> SVGHandle {
-        let min = Vec2::vec2(self.margin, self.margin);
-        let max = Vec2::vec2(self.size.x - self.margin, self.size.y - self.margin);
-
+    fn get_paper<F>(&self, to_graph_coords:F) -> SVGHandle
+        where F: Fn(Vec2) -> Vec2
+    {
         let mut handle = SVGHandle {
             size: self.size,
             elements: Vec::new()
-        };
-        let to_graph_coords = |p:Vec2| {
-            let pure_graph_coords = min + (max - min) * (p / self.max_value);
-            Vec2::vec2(pure_graph_coords.x, min.y + max.y - pure_graph_coords.y)
         };
         handle
             // 枠を追加
@@ -101,95 +228,65 @@ impl GraphPaper {
             .clone()
     }
 }
+
+/// 等間隔目盛りのグラフ
 pub struct LinearGraph {
     pub graph_paper:GraphPaper,
-    // 長目盛の長さ
-    pub great_split_length:f32,
-    // 短目盛の長さ
-    pub short_split_length:f32,
-
-    // 横長目盛分割数 / 横長目盛に対応する数 / 横長目盛の短目盛での分割数
-    pub h_great_split:u32,
-    pub h_short_split:u32,
-
-    // 縦長目盛分割数 / 縦長目盛に対応する数 / 縦長目盛の短目盛での分割数
-    pub v_great_split:u32,
-    pub v_short_split:u32,
+    pub x_linear: XLinearScale,
+    pub y_linear: YLinearScale
 }
 impl LinearGraph {
-    fn get_v_splitten(&self, i:u32) -> String {
-        let y_from = self.graph_paper.margin;
-        let unit = (self.graph_paper.size.y - 2_f32 * self.graph_paper.margin) / ((self.v_great_split * self.v_short_split) as f32);
-        let from = Vec2 {
-            x: self.graph_paper.margin,
-            y: self.graph_paper.size.y - y_from - unit * (i as f32)
-        };
-        if i % self.v_great_split == 0 {
-            let to = from + Vec2 { x: self.great_split_length, y: 0_f32 };
-            format!(
-                "{}\n\t{}",
-                self.graph_paper.get_line(from, to),
-                GraphPaper::get_text(
-                    from, (
-                        (self.graph_paper.max_value.y / self.v_great_split as f32)
-                         * (i as f32 / self.v_great_split as f32)
-                    ).to_string(),
-                    Some(vec![
-                        "text-anchor=\"end\"",
-                        "font-size=\"20pt\""
-                    ])
-                )
-            )
-        } else {
-            let to = from + Vec2 { x: self.short_split_length, y: 0_f32 };
-            self.graph_paper.get_line(from, to)
-        }
-    }
-    fn get_h_splitten(&self, i:u32) -> String {
-        let x_from = self.graph_paper.margin;
-        let y_from = self.graph_paper.size.y - self.graph_paper.margin;
-        let unit = (self.graph_paper.size.x - 2_f32 * self.graph_paper.margin)
-            / ((self.h_great_split * self.h_short_split) as f32);
-        let from = Vec2 {
-            x: x_from + unit * i as f32,
-            y: y_from
-        };
-        if i % self.h_great_split == 0 {
-            let to = from + Vec2 { x: 0_f32, y: -self.great_split_length };
-            format!(
-                "{}\n\t{}",
-                self.graph_paper.get_line(from, to),
-                GraphPaper::get_text(
-                    from, ((self.graph_paper.max_value.x / self.h_great_split as f32)
-                     * (i as f32 / self.h_great_split as f32)
-                    ).to_string(),
-                    Some(vec![
-                        "text-anchor=\"end\"",
-                        "dominant-baseline=\"hanging\"",
-                        "font-size=\"20pt\""
-                    ])
-                )
-            )
-        } else {
-            let to = from + Vec2 { x: 0_f32, y: -self.short_split_length };
-            self.graph_paper.get_line(from, to)
-        }
-    }
     pub fn serialise(&self) -> String {
-        // 縦基準線を追加
+        let min = Vec2::vec2(
+            self.graph_paper.margin,
+            self.graph_paper.margin
+        );
+        let max = Vec2::vec2(
+            self.graph_paper.size.x - self.graph_paper.margin,
+            self.graph_paper.size.y - self.graph_paper.margin
+        );
+        let to_graph_coords = |p:Vec2| {
+            let pure_graph_coords = min + (max - min) * (p / self.graph_paper.max_value);
+            Vec2::vec2(pure_graph_coords.x, min.y + max.y - pure_graph_coords.y)
+        };
         self.graph_paper
-            .get_paper()
-            .add_elements(
-                (1..(self.v_great_split * self.v_short_split + 1))
-                    .map(|i| self.get_v_splitten(i))
-                    .collect::<Vec<String>>()
-            )
-                // 横基準線を追加
-            .add_elements(
-                (1..(self.h_great_split * self.h_short_split + 1))
-                    .map(|i| self.get_h_splitten(i))
-                    .collect::<Vec<String>>()
-            )
+            .get_paper(to_graph_coords)
+            // 横基準線を追加
+            .add_elements(self.x_linear.get_h_splitten(&self.graph_paper))
+            // 縦基準線を追加
+            .add_elements(self.y_linear.get_v_splitten(&self.graph_paper))
+            .serialise()
+    }
+}
+
+/// 片対数グラフ
+pub struct SemiLogGraph {
+    pub graph_paper:GraphPaper,
+
+    pub x_log:XLogScale,
+    pub y_linear:YLinearScale
+}
+impl SemiLogGraph {
+    pub fn serialise(&self) -> String {
+        let min = Vec2::vec2(
+            self.graph_paper.margin,
+            self.graph_paper.margin
+        );
+        let max = Vec2::vec2(
+            self.graph_paper.size.x - self.graph_paper.margin,
+            self.graph_paper.size.y - self.graph_paper.margin
+        );
+
+        let to_graph_coords = |p:Vec2| {
+            let pure_graph_coords = min + (max - min) * (p / self.graph_paper.max_value);
+            Vec2::vec2(pure_graph_coords.x, min.y + max.y - pure_graph_coords.y)
+        };
+        self.graph_paper
+            .get_paper(to_graph_coords)
+            // 縦基準線を追加
+            .add_elements(self.y_linear.get_v_splitten(&self.graph_paper))
+            // 横基準線を追加
+            .add_elements(self.x_log.get_h_splitten(&self.graph_paper))
             .serialise()
     }
 }
