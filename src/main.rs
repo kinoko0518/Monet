@@ -8,11 +8,7 @@ use std::fs::File;
 use std::io::Write;
 
 fn main() {
-    let graph_paper = GraphPaper {
-        name: "テスターを用いた電圧測定における内部抵抗の影響(DC2.5Vレンジ)".to_string(),
-        margin: 100.0,
-        size: graph_paper::A4,
-        points: vec![
+    let points = vec![
             Vec2::vec2(0.47, 0.050),
             Vec2::vec2(1.0, 0.085),
             Vec2::vec2(1.3, 0.1),
@@ -26,7 +22,12 @@ fn main() {
             Vec2::vec2(16.9, 1.0),
             Vec2::vec2(24.0, 1.2),
             Vec2::vec2(34.0, 1.48),
-        ],
+        ];
+    let graph_paper = GraphPaper {
+        name: "テスターを用いた電圧測定における内部抵抗の影響(DC2.5Vレンジ)".to_string(),
+        margin: 100.0,
+        size: graph_paper::A4,
+        points: points.clone(),
         stroke_width: 3.0,
         great_split_length: 50.0,
         short_split_length: 25.5,
@@ -48,21 +49,7 @@ fn main() {
         name: "テスターを用いた電圧測定における内部抵抗の影響(DC2.5Vレンジ)".to_string(),
         margin: 100.0,
         size: graph_paper::A4,
-        points: vec![
-            Vec2::vec2(0.47, 0.050),
-            Vec2::vec2(1.0, 0.085),
-            Vec2::vec2(1.3, 0.1),
-            Vec2::vec2(1.77, 0.15),
-            Vec2::vec2(2.3, 0.2),
-            Vec2::vec2(3.0, 0.25),
-            Vec2::vec2(3.9, 0.3),
-            Vec2::vec2(5.3, 0.4),
-            Vec2::vec2(10.0, 0.7),
-            Vec2::vec2(13.0, 0.85),
-            Vec2::vec2(16.9, 1.0),
-            Vec2::vec2(24.0, 1.2),
-            Vec2::vec2(34.0, 1.48),
-        ],
+        points: points,
         stroke_width: 3.0,
         great_split_length: 50.0,
         short_split_length: 25.5,

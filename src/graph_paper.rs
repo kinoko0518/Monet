@@ -3,6 +3,8 @@ mod logarithm;
 
 use crate::math::Vec2;
 
+const P_RADIUS:f32 = 10.0; 
+
 pub use self::linear::{
     LinearGraph,
     XLinearScale,
@@ -93,6 +95,9 @@ impl GraphPaper {
             text
         )
     }
+    fn to_plot(&self, point:&Vec2) -> String {
+        format!("<circle r=\"{}\" cx=\"{}\" cy=\"{}\" />", P_RADIUS, point.x, point.y)
+    }
     fn get_paper<F>(&self, to_graph_coords:F) -> SVGHandle
         where F: Fn(Vec2) -> Vec2
     {
@@ -115,7 +120,7 @@ impl GraphPaper {
             // プロット点を追加
             .add_elements(
                 self.points.iter()
-                    .map(|p| to_graph_coords(*p).to_point())
+                    .map(|p| self.to_plot(&to_graph_coords(*p)))
                     .collect::<Vec<String>>()
             )
             .clone()

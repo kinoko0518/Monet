@@ -1,7 +1,5 @@
 use std::fmt::Debug;
 
-const P_RADIUS:f32 = 10.0;
-
 #[derive(Clone, Copy)]
 pub struct Vec2 {
     pub x: f32,
@@ -13,9 +11,6 @@ impl Vec2 {
     }
     pub fn abs(&self) -> f32 {
         (self.x.powi(2) + self.y.powi(2)).sqrt()
-    }
-    pub fn to_point(&self) -> String {
-        format!("<circle r=\"{}\" cx=\"{}\" cy=\"{}\" />", P_RADIUS, self.x, self.y)
     }
     pub fn mul(&self, multiplation:f32) -> Self {
         Vec2 {

@@ -1,5 +1,22 @@
 use super::{XScale, YScale, GraphPaper, Vec2};
 
+fn get_scaled<'a> (
+    graph_paper:&'a GraphPaper,
+    great_split:u32,
+    short_split:u32,
+) -> Box<dyn Fn(u32) -> f32 + 'a> {
+    Box::new(move |i:u32| -> f32 {
+        let dividing_amount = great_split * short_split;
+        let unit = (graph_paper.size.x - 2_f32 * graph_paper.margin) / dividing_amount as f32;
+        graph_paper.margin + unit * i as f32
+    })
+}
+fn get_value(max_value:f32, great_split:u32) -> Box<dyn Fn(u32) -> f32> {
+    Box::new(move |i:u32| -> f32 {
+        (max_value / great_split as f32) * (i as f32 / great_split as f32)
+    })
+}
+
 /// X軸のリニア軸
 pub struct XLinearScale {
     // 横長目盛分割数 / 横長目盛の短目盛での分割数
@@ -9,38 +26,37 @@ pub struct XLinearScale {
 }
 impl super::XScale for XLinearScale {
     fn get_h_splitten(&self, graph_paper:&GraphPaper) -> Vec<String> {
-        let x_from = graph_paper.margin;
-        let y_from = graph_paper.size.y - graph_paper.margin;
-        let unit = (graph_paper.size.x - 2_f32 * graph_paper.margin)
-            / ((self.h_great_split * self.h_short_split) as f32);
-        let get_a_splitten = |i:u32| -> String {
-            let from = Vec2 {
-                x: x_from + unit * i as f32,
-                y: y_from
-            };
-            if i % self.h_great_split == 0 {
-                let to = from + Vec2 { x: 0_f32, y: -graph_paper.great_split_length };
-                format!(
-                    "{}\n\t{}",
-                    graph_paper.get_line(from, to),
-                    GraphPaper::get_text(
-                        from, ((self.max_value / self.h_great_split as f32)
-                        * (i as f32 / self.h_great_split as f32)
-                        ).to_string(),
+        let to_scaled_x = get_scaled(
+            graph_paper, 
+            self.h_great_split,
+            self.h_short_split
+        );
+        (0..(self.h_great_split * self.h_short_split + 1))
+            .map(|i| {
+                let from = Vec2::vec2(
+                    to_scaled_x(i),
+                    graph_paper.size.y - graph_paper.margin
+                );
+                let scale_length:f32;
+                let value = get_value(self.max_value, self.h_great_split);
+                if i % self.h_great_split == 0 {
+                    scale_length = graph_paper.great_split_length;
+                    let to = from - Vec2::vec2(0_f32, scale_length);
+                    let line = graph_paper.get_line(from, to);
+                    let text = GraphPaper::get_text(
+                        from, value(i).to_string(),
                         Some(vec![
                             "text-anchor=\"end\"",
-                            "dominant-baseline=\"hanging\"",
                             "font-size=\"20pt\""
                         ])
-                    )
-                )
-            } else {
-                let to = from + Vec2 { x: 0_f32, y: -graph_paper.short_split_length };
-                graph_paper.get_line(from, to)
-            }
-        };
-        (0..(self.h_great_split * self.h_short_split + 1))
-            .map(|i| get_a_splitten(i))
+                    );
+                    format!("{}\n\t{}", line, text)
+                } else {
+                    scale_length = graph_paper.short_split_length;
+                    let to = from - Vec2::vec2(0_f32, scale_length);
+                    graph_paper.get_line(from, to)
+                }
+            })
             .collect::<Vec<String>>()
     }
     fn to_scaled_x<'a>(&'a self, graph_paper:&'a GraphPaper) -> Box<dyn Fn(f32) -> f32 + 'a> {
