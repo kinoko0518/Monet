@@ -6,25 +6,35 @@ use crate::math::Vec2;
 const P_RADIUS:f32 = 10.0; 
 
 pub use self::linear::{
-    LinearGraph,
     XLinearScale,
     YLinearScale
 };
+
 pub use self::logarithm::{
-    SemiLogGraph,
     XLogScale,
+    YLogScale
 };
 
 pub const A4:Vec2 = Vec2 {
     x: 2970.0,
     y: 2100.0
 };
+const XSCALE_TEXT_SETTING:TextSetting = TextSetting {
+    font_size: 20,
+    v_anchor: Some(VerticalAnchor::Top),
+    h_anchor: Some(HorizontalAnchor::Start)
+};
+const YSCALE_TEXT_SETTING:TextSetting = TextSetting {
+    font_size: 20,
+    v_anchor: Some(VerticalAnchor::Bottom),
+    h_anchor: Some(HorizontalAnchor::End)
+};
 
-trait XScale {
+pub trait XScale {
     fn get_h_splitten(&self, graph_paper:&GraphPaper) -> Vec<String>;
     fn to_scaled_x<'a>(&'a self, graph_paper:&'a GraphPaper) -> Box<dyn Fn(f32) -> f32 + 'a>;
 }
-trait YScale {
+pub trait YScale {
     fn get_v_splitten(&self, graph_paper:&GraphPaper) -> Vec<String>;
     fn to_scaled_y<'a>(&'a self, graph_paper:&'a GraphPaper) -> Box<dyn Fn(f32) -> f32 + 'a>;
 }
@@ -83,7 +93,7 @@ impl GraphPaper {
             from.x, from.y, to.x, to.y, self.stroke_width
         )
     }
-    fn get_text(anchor:Vec2, text:String, extra_property:Option<Vec<&str>>) -> String {
+    fn get_text(anchor:Vec2, text:String, extra_property:Option<Vec<String>>) -> String {
         format!(
             "<text x=\"{}\" y=\"{}\" {}>{}</text>",
             anchor.x, anchor.y,
@@ -112,11 +122,12 @@ impl GraphPaper {
             .add_element(Self::get_text(
                 self.size / Vec2::vec2(2.0, 1.0),
                 self.name.clone(),
-                Some(vec![
-                    "text-anchor=\"middle\"",
-                    "font-size=\"20pt\""
-                ]))
-            )
+                Some(TextSetting {
+                    font_size: 20,
+                    v_anchor: Some(VerticalAnchor::Bottom),
+                    h_anchor: Some(HorizontalAnchor::Centre)
+                }.serialise())
+            ))
             // プロット点を追加
             .add_elements(
                 self.points.iter()
@@ -124,5 +135,70 @@ impl GraphPaper {
                     .collect::<Vec<String>>()
             )
             .clone()
+    }
+}
+
+pub struct Graph {
+    pub graph_paper: GraphPaper,
+    pub x_scale: Box<dyn XScale>,
+    pub y_scale: Box<dyn YScale>
+}
+
+impl Graph {
+    pub fn serialise(&self) -> String {
+        let x = self.x_scale.to_scaled_x(&self.graph_paper);
+        let y = self.y_scale.to_scaled_y(&self.graph_paper);
+        let to_graph_coords = |p:Vec2| -> Vec2 {
+            Vec2::vec2(x(p.x), y(p.y))
+        };
+        self.graph_paper
+            .get_paper(to_graph_coords)
+            // 縦基準線を追加
+            .add_elements(self.y_scale.get_v_splitten(&self.graph_paper))
+            // 横基準線を追加
+            .add_elements(self.x_scale.get_h_splitten(&self.graph_paper))
+            .serialise()
+    }
+}
+
+enum VerticalAnchor {
+    Top,
+    Centre,
+    Bottom
+}
+enum HorizontalAnchor {
+    Start,
+    Centre,
+    End
+}
+struct TextSetting {
+    font_size: u32,
+    v_anchor : Option<VerticalAnchor>,
+    h_anchor : Option<HorizontalAnchor>,
+}
+impl TextSetting {
+    fn serialise(&self) -> Vec<String> {
+        let mut setting = vec![
+            format!("font-size=\"{}pt\"", self.font_size)
+        ];
+        if let Some(s) = &self.v_anchor {
+            setting.push(
+                format!("dominant-baseline=\"{}\"", match s {
+                    VerticalAnchor::Top => "hanging",
+                    VerticalAnchor::Centre => "middle",
+                    VerticalAnchor::Bottom => "auto"
+                })
+            );
+        };
+        if let Some(s) = &self.h_anchor {
+            setting.push(
+                format!("text-anchor=\"{}\"", match s {
+                    HorizontalAnchor::Start => "start",
+                    HorizontalAnchor::Centre => "center",
+                    HorizontalAnchor::End => "end"
+                })
+            );
+        };
+        setting
     }
 }

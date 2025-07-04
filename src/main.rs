@@ -1,7 +1,7 @@
 pub mod math;
 pub mod graph_paper;
 
-use crate::graph_paper::{XLinearScale, XLogScale, YLinearScale};
+use crate::graph_paper::{XLinearScale, XLogScale, YLinearScale, YLogScale};
 use crate::{graph_paper::GraphPaper, math::vector2::Vec2};
 
 use std::fs::File;
@@ -32,18 +32,18 @@ fn main() {
         great_split_length: 50.0,
         short_split_length: 25.5,
     };
-    let linear_graph = graph_paper::LinearGraph {
+    let linear_graph = graph_paper::Graph {
         graph_paper: graph_paper,
-        x_linear: XLinearScale {
-            h_great_split: 7,
-            h_short_split: 5,
-            max_value: 35.0
-        },
-        y_linear: YLinearScale {
-            v_great_split: 5,
-            v_short_split: 5,
-            max_value: 2.5
-        }
+        x_scale: Box::new(XLinearScale {
+            h_great_split:    5,
+            h_short_split:    7,
+            max_value    : 35.0,
+        }),
+        y_scale: Box::new(YLinearScale {
+            v_great_split:   5,
+            v_short_split:   5,
+            max_value    : 2.5,
+        })
     };
     let lograph_paper = GraphPaper {
         name: "テスターを用いた電圧測定における内部抵抗の影響(DC2.5Vレンジ)".to_string(),
@@ -54,27 +54,35 @@ fn main() {
         great_split_length: 50.0,
         short_split_length: 25.5,
     };
-    let semilog_graph = graph_paper::SemiLogGraph {
+    let semilog_graph = graph_paper::Graph {
         graph_paper: lograph_paper,
-        x_log: XLogScale {
+        x_scale: Box::new(XLogScale {
             from:   -1,
             to  :    2,
             base: 10.0,
             tick:   20
-        },
-        y_linear: YLinearScale {
-            v_great_split:   5,
-            v_short_split:   5,
-            max_value    : 2.5
-        }
+        }),
+        y_scale: Box::new(YLogScale {
+            from:   -2,
+            to  :    1,
+            base: 10.0,
+        })
     };
-    export(linear_graph.serialise(), "linear_graph").unwrap();
-    export(semilog_graph.serialise(), "semilog_graph").unwrap();
+    export(
+        linear_graph.serialise(),
+        "linear_graph"
+    ).unwrap();
+    export(
+        semilog_graph.serialise(),
+        "semilog_graph"
+    ).unwrap();
 }
 
 fn export(what_to_export:String, filename:&str) -> Result<(), Box<dyn std::error::Error>> {
     // ToDo: 今動けばいいクォリティなのでパスべた書き　後で直す
-    let mut file = File::create(format!("C:/Projects/Monet/output/{}.svg", filename))?;
+    let mut file = File::create(
+        format!("C:/Projects/Monet/output/{}.svg", filename)
+    )?;
     write!(file, "{}", what_to_export)?;
     file.flush()?;
     Ok(())

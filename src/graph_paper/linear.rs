@@ -1,20 +1,44 @@
-use super::{XScale, YScale, GraphPaper, Vec2};
+use crate::graph_paper::{
+    TextSetting,
+    XSCALE_TEXT_SETTING,
+    YSCALE_TEXT_SETTING
+};
 
-fn get_scaled<'a> (
-    graph_paper:&'a GraphPaper,
-    great_split:u32,
-    short_split:u32,
-) -> Box<dyn Fn(u32) -> f32 + 'a> {
-    Box::new(move |i:u32| -> f32 {
-        let dividing_amount = great_split * short_split;
-        let unit = (graph_paper.size.x - 2_f32 * graph_paper.margin) / dividing_amount as f32;
-        graph_paper.margin + unit * i as f32
-    })
-}
-fn get_value(max_value:f32, great_split:u32) -> Box<dyn Fn(u32) -> f32> {
-    Box::new(move |i:u32| -> f32 {
-        (max_value / great_split as f32) * (i as f32 / great_split as f32)
-    })
+use super::{GraphPaper, Vec2};
+
+fn generate_ticks<F, G>(
+    graph_paper    : &GraphPaper,
+    calc_tick_from : F,
+    great_split    : u32,
+    short_split    : u32,
+    max_value      : f32,
+    text_setting   : TextSetting,
+    calc_tick_endpoint :G
+) -> Vec<String>
+    where F: Fn(f32) -> Vec2, G: Fn(Vec2, f32) -> Vec2
+{
+    let total_split = great_split * short_split;
+    (0..(total_split + 1))
+        .map(|i| {
+            let value = (i as f32 / total_split as f32) * max_value;
+            let from = calc_tick_from(value);
+            let scale_length:f32;
+            if i % great_split == 0 {
+                scale_length = graph_paper.great_split_length;
+                let to = calc_tick_endpoint(from, scale_length);
+                let line = graph_paper.get_line(from, to);
+                let text = GraphPaper::get_text(
+                    from, value.to_string(),
+                    Some(text_setting.serialise())
+                );
+                format!("{}\n\t{}", line, text)
+            } else {
+                scale_length = graph_paper.short_split_length;
+                let to = calc_tick_endpoint(from, scale_length);
+                graph_paper.get_line(from, to)
+            }
+        })
+        .collect::<Vec<String>>()
 }
 
 /// X軸のリニア軸
@@ -26,38 +50,23 @@ pub struct XLinearScale {
 }
 impl super::XScale for XLinearScale {
     fn get_h_splitten(&self, graph_paper:&GraphPaper) -> Vec<String> {
-        let to_scaled_x = get_scaled(
-            graph_paper, 
-            self.h_great_split,
-            self.h_short_split
-        );
-        (0..(self.h_great_split * self.h_short_split + 1))
-            .map(|i| {
-                let from = Vec2::vec2(
-                    to_scaled_x(i),
+        let to_scaled = self.to_scaled_x(graph_paper);
+        generate_ticks(
+            graph_paper,
+            Box::new(|i:f32| {
+                Vec2::vec2(
+                    to_scaled(i),
                     graph_paper.size.y - graph_paper.margin
-                );
-                let scale_length:f32;
-                let value = get_value(self.max_value, self.h_great_split);
-                if i % self.h_great_split == 0 {
-                    scale_length = graph_paper.great_split_length;
-                    let to = from - Vec2::vec2(0_f32, scale_length);
-                    let line = graph_paper.get_line(from, to);
-                    let text = GraphPaper::get_text(
-                        from, value(i).to_string(),
-                        Some(vec![
-                            "text-anchor=\"end\"",
-                            "font-size=\"20pt\""
-                        ])
-                    );
-                    format!("{}\n\t{}", line, text)
-                } else {
-                    scale_length = graph_paper.short_split_length;
-                    let to = from - Vec2::vec2(0_f32, scale_length);
-                    graph_paper.get_line(from, to)
-                }
+                )
+            }),
+            self.h_great_split,
+            self.h_short_split,
+            self.max_value,
+            XSCALE_TEXT_SETTING,
+            Box::new(|from:Vec2, scale_length:f32| {
+                from - Vec2::vec2(0_f32, scale_length)
             })
-            .collect::<Vec<String>>()
+        )
     }
     fn to_scaled_x<'a>(&'a self, graph_paper:&'a GraphPaper) -> Box<dyn Fn(f32) -> f32 + 'a> {
         Box::new(|x:f32| -> f32 {
@@ -75,66 +84,28 @@ pub struct YLinearScale {
 }
 impl super::YScale for YLinearScale {
     fn get_v_splitten(&self, graph_paper:&GraphPaper) -> Vec<String> {
-        let y_from = graph_paper.margin;
-        let unit = (graph_paper.size.y - 2_f32 * graph_paper.margin) / ((self.v_great_split * self.v_short_split) as f32);
-
-        let get_a_splitten = |i: u32| -> String {
-            let from = Vec2 {
-                x: graph_paper.margin,
-                y: graph_paper.size.y - y_from - unit * (i as f32)
-            };
-            if i % self.v_great_split == 0 {
-                let to = from + Vec2 { x: graph_paper.great_split_length, y: 0_f32 };
-                format!(
-                    "{}\n\t{}",
-                    graph_paper.get_line(from, to),
-                    GraphPaper::get_text(
-                        from, (
-                            (self.max_value / self.v_great_split as f32)
-                            * (i as f32 / self.v_great_split as f32)
-                        ).to_string(),
-                        Some(vec![
-                            "text-anchor=\"end\"",
-                            "font-size=\"20pt\""
-                        ])
-                    )
+        let to_scaled = self.to_scaled_y(graph_paper);
+        generate_ticks(
+            graph_paper,
+            Box::new(|i:f32| {
+                Vec2::vec2(
+                    graph_paper.margin,
+                    to_scaled(i)
                 )
-            } else {
-                let to = from + Vec2 { x: graph_paper.short_split_length, y: 0_f32 };
-                graph_paper.get_line(from, to)
-            }
-        };
-        (0..(self.v_great_split * self.v_short_split + 1))
-            .map(|i| get_a_splitten(i))
-            .collect::<Vec<String>>()
+            }),
+            self.v_great_split,
+            self.v_short_split,
+            self.max_value,
+            YSCALE_TEXT_SETTING,
+            Box::new(|from:Vec2, scale_length:f32| {
+                from + Vec2::vec2(scale_length, 0_f32)
+            })
+        )
     }
     fn to_scaled_y<'a>(&'a self, graph_paper:&'a GraphPaper) -> Box<dyn Fn(f32) -> f32 + 'a> {
         Box::new(|y:f32| -> f32 {
             let size = graph_paper.size.y - 2_f32 * graph_paper.margin;
             graph_paper.size.y - graph_paper.margin - (y / self.max_value) * size
         })
-    }
-}
-
-/// 等間隔目盛りのグラフ
-pub struct LinearGraph {
-    pub graph_paper:GraphPaper,
-    pub x_linear: XLinearScale,
-    pub y_linear: YLinearScale
-}
-impl LinearGraph {
-    pub fn serialise(&self) -> String {
-        let to_graph_coords = |p:Vec2| {
-            let x = self.x_linear.to_scaled_x(&self.graph_paper);
-            let y = self.y_linear.to_scaled_y(&self.graph_paper);
-            Vec2::vec2(x(p.x), y(p.y))
-        };
-        self.graph_paper
-            .get_paper(to_graph_coords)
-            // 横基準線を追加
-            .add_elements(self.x_linear.get_h_splitten(&self.graph_paper))
-            // 縦基準線を追加
-            .add_elements(self.y_linear.get_v_splitten(&self.graph_paper))
-            .serialise()
     }
 }
