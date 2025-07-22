@@ -1,6 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use egui::{Color32, RichText};
+use egui::{Color32, RichText, Ui};
 use rfd;
 use std::{error::Error, path::{self, PathBuf}};
 use eframe::egui;
@@ -9,6 +9,8 @@ use monet::{self, GraphPaper};
 
 use std::fs::File;
 use std::io::Write;
+
+const V_SEPARATION:f32 = 20.0;
 
 fn main() -> eframe::Result {
     let options = eframe::NativeOptions {
@@ -103,13 +105,13 @@ impl Default for MyApp {
     }
 }
 
-const V_SEPARATION:f32 = 10.0;
-
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             // The heading
             ui.heading("Monet");
+
+            ui.add_space(V_SEPARATION);
 
             // Specify csv path
             ui.horizontal(|hui| {
@@ -118,7 +120,7 @@ impl eframe::App for MyApp {
                 }
                 hui.label(match &self.csv_path {
                     Some(s) => s.to_str().unwrap(),
-                          None => "Unlocated"
+                    None => "Unlocated"
                 })
             });
 
@@ -135,56 +137,17 @@ impl eframe::App for MyApp {
 
             ui.add_space(V_SEPARATION);
 
-            // Select X Axis Type
-            egui::ComboBox::from_label("X's axis type")
-            .selected_text(format!("{:?}", self.x.axis_kind))
-            .show_ui(ui, |ui| {
-                ui.selectable_value(
-                    &mut self.x.axis_kind,
-                    AxisKind::Linear,
-                    "Linear"
-                );
-                ui.selectable_value(
-                    &mut self.x.axis_kind,
-                    AxisKind::Log,
-                    "Log"
-                );
-            });
-
-            // Select Y Axis Type
-            egui::ComboBox::from_label("Y's axis type")
-            .selected_text(format!("{:?}", self.y.axis_kind))
-            .show_ui(ui, |ui| {
-                ui.selectable_value(
-                    &mut self.y.axis_kind,
-                    AxisKind::Linear,
-                    "Linear"
-                );
-                ui.selectable_value(
-                    &mut self.y.axis_kind,
-                    AxisKind::Log,
-                    "Log"
-                );
-            });
+            self.x_axis(ui);
 
             ui.add_space(V_SEPARATION);
 
+            self.y_axis(ui);
+
+            ui.add_space(V_SEPARATION);
+
+
             if let Some(p) = &self.csv_path.clone() {
-                ui.label("Fields means each a corresponding csv column");
-                if ui.button("Add line").clicked() {
-                    self.columns.push((0, 0));
-                }
-                for i in 0..self.columns.len() {
-                    ui.horizontal(|hui| {
-                        if self.columns.get(i).is_some() {
-                            hui.add(egui::DragValue::new(&mut self.columns[i].0));
-                            hui.add(egui::DragValue::new(&mut self.columns[i].1));
-                            if hui.button("Delete").clicked() {
-                                self.columns.remove(i);
-                            };
-                        }
-                    });
-                }
+                self.modify_lines(ui);
 
                 ui.add_space(V_SEPARATION);
 
@@ -201,6 +164,122 @@ impl eframe::App for MyApp {
 }
 
 impl MyApp {
+    fn x_axis(&mut self, ui:&mut Ui) {
+        ui.label("X Axis Property");
+        // Select X Axis Type
+        egui::ComboBox::from_label("X's axis type")
+        .selected_text(format!("{:?}", self.x.axis_kind))
+        .show_ui(ui, |ui| {
+            ui.selectable_value(
+                &mut self.x.axis_kind,
+                AxisKind::Linear,
+                "Linear"
+            );
+            ui.selectable_value(
+                &mut self.x.axis_kind,
+                AxisKind::Log,
+                "Log"
+            );
+        });
+        match self.x.axis_kind {
+            AxisKind::Linear => {
+                ui.horizontal(|hui| {
+                    hui.add(egui::DragValue::new(&mut self.x.max_value));
+                    hui.label("Max Value");
+                });
+                ui.horizontal(|hui| {
+                    hui.add(egui::DragValue::new(&mut self.x.h_great_split));
+                    hui.label("Horizontal Great Tick Amount");
+                });
+                ui.horizontal(|hui| {
+                    hui.add(egui::DragValue::new(&mut self.x.h_short_split));
+                    hui.label("Horizontal Short Tick Amount");
+                });
+            },
+            AxisKind::Log => {
+                ui.horizontal(|hui| {
+                    hui.add(egui::DragValue::new(&mut self.x.base));
+                    hui.label("Base");
+                });
+                ui.horizontal(|hui| {
+                    hui.add(egui::DragValue::new(&mut self.x.from));
+                    hui.label("Min Pow");
+                });
+                ui.horizontal(|hui| {
+                    hui.add(egui::DragValue::new(&mut self.x.to));
+                    hui.label("Max Pow");
+                });
+            }
+        }
+    }
+    
+    fn y_axis(&mut self, ui:&mut Ui) {
+        ui.label("Y Axis Property");
+        // Select Y Axis Type
+        egui::ComboBox::from_label("Y's axis type")
+        .selected_text(format!("{:?}", self.y.axis_kind))
+        .show_ui(ui, |ui| {
+            ui.selectable_value(
+                &mut self.y.axis_kind,
+                AxisKind::Linear,
+                "Linear"
+            );
+            ui.selectable_value(
+                &mut self.y.axis_kind,
+                AxisKind::Log,
+                "Log"
+            );
+        });
+        match self.y.axis_kind {
+            AxisKind::Linear => {
+                ui.horizontal(|hui| {
+                    hui.add(egui::DragValue::new(&mut self.y.max_value));
+                    hui.label("Max Value");
+                });
+                ui.horizontal(|hui| {
+                    hui.add(egui::DragValue::new(&mut self.y.h_great_split));
+                    hui.label("Horizontal Great Tick Amount");
+                });
+                ui.horizontal(|hui| {
+                    hui.add(egui::DragValue::new(&mut self.y.h_short_split));
+                    hui.label("Horizontal Short Tick Amount");
+                });
+            },
+            AxisKind::Log => {
+                ui.horizontal(|hui| {
+                    hui.add(egui::DragValue::new(&mut self.y.base));
+                    hui.label("Base");
+                });
+                ui.horizontal(|hui| {
+                    hui.add(egui::DragValue::new(&mut self.y.from));
+                    hui.label("Min Pow");
+                });
+                ui.horizontal(|hui| {
+                    hui.add(egui::DragValue::new(&mut self.y.to));
+                    hui.label("Max Pow");
+                });
+            }
+        }
+    }
+
+    fn modify_lines(&mut self, ui:&mut Ui) {
+        ui.label("Fields means each a corresponding csv column");
+        if ui.button("Add line").clicked() {
+            self.columns.push((0, 0));
+        }
+        for i in 0..self.columns.len() {
+            ui.horizontal(|hui| {
+                if self.columns.get(i).is_some() {
+                    hui.add(egui::DragValue::new(&mut self.columns[i].0));
+                    hui.add(egui::DragValue::new(&mut self.columns[i].1));
+                    if hui.button("Delete").clicked() {
+                        self.columns.remove(i);
+                    };
+                }
+            });
+        }
+    }
+
     fn compile(&mut self, csv_path:&PathBuf) -> Result<(), String> {
         if let Ok(_) = csv::Reader::from_path(csv_path) {
             let mut graph_paper = monet::GraphPaper {
